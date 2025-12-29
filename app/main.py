@@ -5,67 +5,64 @@ from app.database import SessionLocal, supabase
 from app.crud import get_company_by_taxcode
 from app.schemas import CompanyResponse
 
+from app.api.company import router as company_router
+
 app = FastAPI(
     title="Statishub Company API",
     version="1.0.0"
 )
 
+app.include_router(company_router)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-@app.get("/company/{taxcode}")
-def get_company(taxcode: str):
-    res = (supabase
-        .table("organization_information")
-        .select("*")
-        .eq("taxcode", "taxcode")
-        .is_("ishistory", "false")
-        .execute())
+# @app.get("/company/{taxcode}")
+# def get_company(taxcode: str):
+#     res = (supabase
+#         .table("organization_information")
+#         .select("*")
+#         .eq("taxcode", "taxcode")
+#         .is_("ishistory", "false")
+#         .execute())
 
-    if not res.data:
-        raise HTTPException(404, "Not found")
+#     if not res.data:
+#         raise HTTPException(404, "Not found")
 
-    return res.data
+#     return res.data
 
-@app.get("/company/{taxcode}/balance-sheet")
-def get_balance_sheet(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
+# @app.get("/company/{taxcode}/balance-sheet")
+# def get_balance_sheet(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
 
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
 
-    organization_id = org_res.data["organizationid"]
+#     organization_id = org_res.data["organizationid"]
 
-    # 2. Lấy balance sheet theo organization_id
-    bs_res = (
-        supabase
-        .table("balance_sheet")
-        .select("*")
-        .eq("organizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+#     # 2. Lấy balance sheet theo organization_id
+#     bs_res = (
+#         supabase
+#         .table("balance_sheet")
+#         .select("*")
+#         .eq("organizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
 
-    if not bs_res.data:
-        raise HTTPException(status_code=404, detail="Balance sheet not found")
+#     if not bs_res.data:
+#         raise HTTPException(status_code=404, detail="Balance sheet not found")
 
-    return {
-        "taxcode": taxcode,
-        "balance_sheet": bs_res.data
-    }
+#     return {
+#         "taxcode": taxcode,
+#         "balance_sheet": bs_res.data
+#     }
 
 @app.get("/company/{taxcode}/income-statement")
 def get_income_statement(taxcode: str):
