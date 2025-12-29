@@ -64,231 +64,231 @@ app.include_router(company_router)
 #         "balance_sheet": bs_res.data
 #     }
 
-@app.get("/company/{taxcode}/income-statement")
-def get_income_statement(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
+# @app.get("/company/{taxcode}/income-statement")
+# def get_income_statement(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
 
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
 
-    organization_id = org_res.data["organizationid"]
-
-
-    # 2. Lấy Income Statement theo organization_id
-    is_res = (
-        supabase
-        .table("income_statement")
-        .select("*")
-        .eq("organizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
-
-    if not is_res.data:
-        raise HTTPException(status_code=404, detail="Income Statement not found")
-
-    return {
-        "taxcode": taxcode,
-        "income-statement": is_res.data
-    }
+#     organization_id = org_res.data["organizationid"]
 
 
-@app.get("/company/{taxcode}/cashflow")
-def get_cashflow(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
+#     # 2. Lấy Income Statement theo organization_id
+#     is_res = (
+#         supabase
+#         .table("income_statement")
+#         .select("*")
+#         .eq("organizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
 
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
+#     if not is_res.data:
+#         raise HTTPException(status_code=404, detail="Income Statement not found")
 
-    organization_id = org_res.data["organizationid"]
-
-
-    # 2. Lấy cashflow theo organization_id
-    res = (
-        supabase
-        .table("cash_flow")
-        .select("*")
-        .eq("organizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Cash flow not found")
-
-    return {
-        "taxcode": taxcode,
-        "cash-flow": res.data
-    }
+#     return {
+#         "taxcode": taxcode,
+#         "income-statement": is_res.data
+#     }
 
 
-@app.get("/company/{taxcode}/shareholders")
-def get_shareholders(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
+# @app.get("/company/{taxcode}/cashflow")
+# def get_cashflow(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
 
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
 
-    organization_id = org_res.data["organizationid"]
-
-
-    # 2. Lấy share_holder theo organization_id
-    res = (
-        supabase
-        .table("share_holder")
-        .select("*")
-        .eq("organizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="shareholders not found")
-
-    return {
-        "taxcode": taxcode,
-        "share_holder": res.data
-    }
-
-@app.get("/company/{taxcode}/structure")
-def get_structure(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
-
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
-    organization_id = org_res.data["organizationid"]
+#     organization_id = org_res.data["organizationid"]
 
 
-    # 2. Lấy structure theo organization_id
-    res = (
-        supabase
-        .table("organization_role")
-        .select("*")
-        .eq("leftorganizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+#     # 2. Lấy cashflow theo organization_id
+#     res = (
+#         supabase
+#         .table("cash_flow")
+#         .select("*")
+#         .eq("organizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="structure not found")
+#     if not res.data:
+#         raise HTTPException(status_code=404, detail="Cash flow not found")
 
-    return {
-        "taxcode": taxcode,
-        "structure": res.data
-    }
-
-@app.get("/company/{taxcode}/personnel")
-def get_personnel(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
-
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
-    organization_id = org_res.data["organizationid"]
+#     return {
+#         "taxcode": taxcode,
+#         "cash-flow": res.data
+#     }
 
 
-    # 2. Lấy person theo organization_id
-    res = (
-        supabase
-        .table("person")
-        .select("*")
-        .eq("sourceorganizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+# @app.get("/company/{taxcode}/shareholders")
+# def get_shareholders(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="person not found")
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
 
-    return {
-        "taxcode": taxcode,
-        "person": res.data
-    }
-
-@app.get("/company/{taxcode}/compliance")
-def get_compliance(taxcode: str):
-    org_res = (
-        supabase
-        .table("organization_information")
-        .select("organizationid, taxcode")
-        .eq("taxcode", taxcode)
-        .eq("ishistory", False)
-        .single()
-        .execute()
-    )
-
-    if not org_res.data:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
-    organization_id = org_res.data["organizationid"]
+#     organization_id = org_res.data["organizationid"]
 
 
-    # 2. Lấy tax_fee_liability theo organization_id
-    res1 = (
-        supabase
-        .table("tax_fee_liability")
-        .select("*")
-        .eq("sourceorganizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+#     # 2. Lấy share_holder theo organization_id
+#     res = (
+#         supabase
+#         .table("share_holder")
+#         .select("*")
+#         .eq("organizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
 
-    # 3. Lấy insurance_liability theo organization_id
-    res2 = (
-        supabase
-        .table("insurance_liability")
-        .select("*")
-        .eq("sourceorganizationid", organization_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+#     if not res.data:
+#         raise HTTPException(status_code=404, detail="shareholders not found")
 
-    return {
-        "taxcode": taxcode,
-        "tax_fee_liability": res1.data,
-        "insurance_liability": res2.data
-    }
+#     return {
+#         "taxcode": taxcode,
+#         "share_holder": res.data
+#     }
+
+# @app.get("/company/{taxcode}/structure")
+# def get_structure(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
+
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
+
+#     organization_id = org_res.data["organizationid"]
+
+
+#     # 2. Lấy structure theo organization_id
+#     res = (
+#         supabase
+#         .table("organization_role")
+#         .select("*")
+#         .eq("leftorganizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     if not res.data:
+#         raise HTTPException(status_code=404, detail="structure not found")
+
+#     return {
+#         "taxcode": taxcode,
+#         "structure": res.data
+#     }
+
+# @app.get("/company/{taxcode}/personnel")
+# def get_personnel(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
+
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
+
+#     organization_id = org_res.data["organizationid"]
+
+
+#     # 2. Lấy person theo organization_id
+#     res = (
+#         supabase
+#         .table("person")
+#         .select("*")
+#         .eq("sourceorganizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     if not res.data:
+#         raise HTTPException(status_code=404, detail="person not found")
+
+#     return {
+#         "taxcode": taxcode,
+#         "person": res.data
+#     }
+
+# @app.get("/company/{taxcode}/compliance")
+# def get_compliance(taxcode: str):
+#     org_res = (
+#         supabase
+#         .table("organization_information")
+#         .select("organizationid, taxcode")
+#         .eq("taxcode", taxcode)
+#         .eq("ishistory", False)
+#         .single()
+#         .execute()
+#     )
+
+#     if not org_res.data:
+#         raise HTTPException(status_code=404, detail="Organization not found")
+
+#     organization_id = org_res.data["organizationid"]
+
+
+#     # 2. Lấy tax_fee_liability theo organization_id
+#     res1 = (
+#         supabase
+#         .table("tax_fee_liability")
+#         .select("*")
+#         .eq("sourceorganizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     # 3. Lấy insurance_liability theo organization_id
+#     res2 = (
+#         supabase
+#         .table("insurance_liability")
+#         .select("*")
+#         .eq("sourceorganizationid", organization_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     return {
+#         "taxcode": taxcode,
+#         "tax_fee_liability": res1.data,
+#         "insurance_liability": res2.data
+#     }
 
 # @app.get(
 #     "/company/{taxcode}",
