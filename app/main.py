@@ -3,16 +3,17 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, supabase
 from app.crud import get_company_by_taxcode
-from app.schemas import CompanyResponse
 
 from app.api.company import router as company_router
-
+from app.api.admin import router as admnin_router
 app = FastAPI(
     title="Statishub Company API",
     version="1.0.0"
 )
 
 app.include_router(company_router)
+
+app.include_router(admnin_router)
 
 
 # @app.get("/company/{taxcode}")

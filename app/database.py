@@ -39,13 +39,13 @@ key = os.getenv("SUPABASE_KEY")
 
 supabase = create_client(url, key)
 
-response = (
-    supabase
-    .table("organization_information")
-    .select("*")
-    .eq("taxcode", "5702076880")
-    .is_("ishistory", "false")
-    .execute()
-)
+# response = (
+#     supabase
+#     .table("organization_information")
+#     .select("*")
+#     .eq("taxcode", "5702076880")
+#     .is_("ishistory", "false")
+#     .execute()
+# )
 
-print(response.data)
+# print(response.data)

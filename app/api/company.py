@@ -4,18 +4,32 @@ from app.core.auth import require_api_key
 from app.services.company import get_org_id_by_taxcode
 # from app.services.decode import decode_fields
 from app.database import supabase
+from app.services.credit import consume_credit
+from app.core.auth import verify_api_key
+from app.core.redis import redis_client
 
 router = APIRouter(
     prefix="/company",
     tags=["Company"],
-    dependencies=[Depends(require_api_key)]
+    # dependencies=[Depends(require_api_key)]
+    dependencies=[Depends(verify_api_key)]
 )
 
 @router.get("/{taxcode}")
 def get_company(
     taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
 ):
+    # 1 Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2 Cache
+    cache_key = f"company:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return eval(cached)
+
     res = (
         supabase
         .table("organization_information")
@@ -27,17 +41,52 @@ def get_company(
     )
 
     if not res.data:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(status_code=404, detail="Not found")
 
-    # decoded = decode_fields(res.data, language)
+    row = res.data
+
+    data = {
+        "BusinessTypeId": row.get("business_type_id"),
+        "LocationId": row.get("location_id"),
+        "ActiveStatusId": row.get("active_status_id"),
+        "MainVSICId": row.get("main_vsic_id"),
+        "IcbId": row.get("icb_id"),
+        "CurrencyId": row.get("currency_id"),
+        "TaxCodeStatusId": row.get("taxcode_status_id"),
+        "RegisterDateId": row.get("register_date"),
+        "TaxCode": row.get("taxcode"),
+        "CharterCapital": row.get("charter_capital"),
+        "Telephone": row.get("telephone"),
+        "Fax": row.get("fax"),
+        "Email": row.get("email"),
+        "Website": row.get("website"),
+        "LogoURL": row.get("logo_url"),
+        "CurrentBusinessTypeId": row.get("current_business_type_id"),
+        "VersionDateId": row.get("version_date"),
+    }
+
+    # Language dependent fields
+    if language == "vi":
+        data.update({
+            "OrganizationName": row.get("organization_name"),
+            "OrganizationShortName": row.get("organization_short_name"),
+            "Address": row.get("address"),
+        })
+    else:
+        data.update({
+            "en_OrganizationName": row.get("en_organization_name"),
+            "en_OrganizationShortName": row.get("en_organization_short_name"),
+            "en_Address": row.get("en_address"),
+        })
 
     return {
         "meta": {
             "taxcode": taxcode,
             "language": language
         },
-        "data": res.data
+        "data": data
     }
+
 
 
 @router.get("/{taxcode}/balance-sheet")
