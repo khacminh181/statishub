@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, supabase
-from app.crud import get_company_by_taxcode
 
 from app.api.company import router as company_router
 from app.api.admin import router as admnin_router

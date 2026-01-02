@@ -7,6 +7,9 @@ from app.database import supabase
 from app.services.credit import consume_credit
 from app.core.auth import verify_api_key
 from app.core.redis import redis_client
+from app.models.model import BalanceSheet, OrganizationInfo, IncomeStatement, CashFlow, ShareHolder
+from typing import List
+import json
 
 router = APIRouter(
     prefix="/company",
@@ -15,7 +18,10 @@ router = APIRouter(
     dependencies=[Depends(verify_api_key)]
 )
 
-@router.get("/{taxcode}")
+@router.get(
+        "/{taxcode}",
+        response_model=OrganizationInfo
+        )
 def get_company(
     taxcode: str,
     language: str = Query("en", enum=["en", "vi"]),
@@ -28,7 +34,7 @@ def get_company(
     cache_key = f"company:{taxcode}:{language}"
     cached = redis_client.get(cache_key)
     if cached:
-        return eval(cached)
+        return json.loads(cached)
 
     res = (
         supabase
@@ -43,57 +49,30 @@ def get_company(
     if not res.data:
         raise HTTPException(status_code=404, detail="Not found")
 
-    row = res.data
+    # 4. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(res.data, default=str))
 
-    data = {
-        "BusinessTypeId": row.get("business_type_id"),
-        "LocationId": row.get("location_id"),
-        "ActiveStatusId": row.get("active_status_id"),
-        "MainVSICId": row.get("main_vsic_id"),
-        "IcbId": row.get("icb_id"),
-        "CurrencyId": row.get("currency_id"),
-        "TaxCodeStatusId": row.get("taxcode_status_id"),
-        "RegisterDateId": row.get("register_date"),
-        "TaxCode": row.get("taxcode"),
-        "CharterCapital": row.get("charter_capital"),
-        "Telephone": row.get("telephone"),
-        "Fax": row.get("fax"),
-        "Email": row.get("email"),
-        "Website": row.get("website"),
-        "LogoURL": row.get("logo_url"),
-        "CurrentBusinessTypeId": row.get("current_business_type_id"),
-        "VersionDateId": row.get("version_date"),
-    }
-
-    # Language dependent fields
-    if language == "vi":
-        data.update({
-            "OrganizationName": row.get("organization_name"),
-            "OrganizationShortName": row.get("organization_short_name"),
-            "Address": row.get("address"),
-        })
-    else:
-        data.update({
-            "en_OrganizationName": row.get("en_organization_name"),
-            "en_OrganizationShortName": row.get("en_organization_short_name"),
-            "en_Address": row.get("en_address"),
-        })
-
-    return {
-        "meta": {
-            "taxcode": taxcode,
-            "language": language
-        },
-        "data": data
-    }
+    return res.data
 
 
-
-@router.get("/{taxcode}/balance-sheet")
+@router.get(
+        "/{taxcode}/balance-sheet",
+        response_model=List[BalanceSheet])
 def balance_sheet(
     taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
 ):
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"balance-sheet:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
+    # 3. Query DB
     org_id = get_org_id_by_taxcode(taxcode)
 
     res = (
@@ -108,19 +87,35 @@ def balance_sheet(
     if not res.data:
         raise HTTPException(404, "Balance sheet not found")
 
-    return {
-        "meta": {"taxcode": taxcode, "language": language},
-        "data": res.data
-    }
+    # 4. Inject taxcode
+    for row in res.data:
+        row["taxcode"] = taxcode
 
-@router.get("/company/{taxcode}/income-statement")
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(res.data))
+    return res.data
+
+@router.get(
+        "/company/{taxcode}/income-statement",
+        response_model=List[IncomeStatement]
+        )
 def get_income_statement(taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
     ):
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"income-statement:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     org_id = get_org_id_by_taxcode(taxcode)
 
     # 2. Lấy Income Statement theo org_id
-    is_res = (
+    res = (
         supabase
         .table("income_statement")
         .select("*")
@@ -129,19 +124,36 @@ def get_income_statement(taxcode: str,
         .execute()
     )
 
-    if not is_res.data:
+    if not res.data:
         raise HTTPException(status_code=404, detail="Income Statement not found")
 
-    return {
-        "taxcode": taxcode,
-        "income-statement": is_res.data
-    }
+    # 4. Inject taxcode
+    for row in res.data:
+        row["taxcode"] = taxcode
+
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(res.data))
+    return res.data
 
 
-@router.get("/company/{taxcode}/cashflow")
+@router.get(
+        "/company/{taxcode}/cashflow",
+        response_model=List[CashFlow]
+        )
 def get_cashflow(taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
     ):
+
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"cashflow:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
     org_id = get_org_id_by_taxcode(taxcode)
 
     # 2. Lấy cashflow theo org_id
@@ -157,16 +169,32 @@ def get_cashflow(taxcode: str,
     if not res.data:
         raise HTTPException(status_code=404, detail="Cash flow not found")
 
-    return {
-        "taxcode": taxcode,
-        "cash-flow": res.data
-    }
+    # 4. Inject taxcode
+    for row in res.data:
+        row["taxcode"] = taxcode
+
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(res.data))
+    return res.data
 
 
-@router.get("/company/{taxcode}/shareholders")
+@router.get(
+        "/company/{taxcode}/shareholders",
+        response_model=List[ShareHolder]
+        )
 def get_shareholders(taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
     ):
+
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"shareholders:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
     org_id = get_org_id_by_taxcode(taxcode)
 
     # 2. Lấy share_holder theo org_id
@@ -181,15 +209,29 @@ def get_shareholders(taxcode: str,
 
     if not res.data:
         raise HTTPException(status_code=404, detail="shareholders not found")
+    # 4. Inject taxcode
+    for row in res.data:
+        row["taxcode"] = taxcode
 
-    return {
-        "taxcode": taxcode,
-        "share_holder": res.data
-    }
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(res.data))
+    return res.data
 
 @router.get("/company/{taxcode}/structure")
 def get_structure(taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])):
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key=Depends(verify_api_key)
+    ):
+
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"structure:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
     org_id = get_org_id_by_taxcode(taxcode)
 
     # 2. Lấy structure theo org_id
@@ -205,10 +247,39 @@ def get_structure(taxcode: str,
     if not res.data:
         raise HTTPException(status_code=404, detail="structure not found")
 
-    return {
-        "taxcode": taxcode,
-        "structure": res.data
+
+    org_ids = set()
+    for r in res.data:
+        org_ids.add(r["rightorganizationid"])
+
+    org_info = (
+        supabase
+        .table("organization_information")
+        .select("organizationid, taxcode")
+        .in_("organizationid", list(org_ids))
+        .execute()
+    )
+
+    org_map = {
+        o["organizationid"]: o["taxcode"]
+        for o in org_info.data
     }
+
+    structure = [
+    {
+        "LeftTaxCode": taxcode,
+        "RightTaxCode": org_map.get(r["rightorganizationid"]),
+        "LeftRoleId": r["leftroleid"],
+        "RightRoleId": r["rightroleid"],
+        "VersionDateId": r["versiondateid"],
+    }
+    for r in res.data
+    ]
+
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(structure))
+    
+    return structure
 
 @router.get("/company/{taxcode}/personnel")
 def get_personnel(taxcode: str,
