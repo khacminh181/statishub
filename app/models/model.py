@@ -1,42 +1,40 @@
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, create_model, Field
 from typing import Optional
 from decimal import Decimal
 
 class OrganizationInfo(BaseModel):
-    BusinessTypeId: Optional[int]
-    LocationId: Optional[int]
-    ActiveStatusId: Optional[int]
-    MainVSICId: Optional[int]
-    IcbId: Optional[int]
-    CurrencyId: Optional[int]
-    TaxCodeStatusId: Optional[int]
+    BusinessTypeId: Optional[int] = Field(None, alias="businesstypeid")
+    LocationId: Optional[int] = Field(None, alias="locationid")
+    ActiveStatusId: Optional[int] = Field(None, alias="activestatusid")
+    MainVSICId: Optional[int] = Field(None, alias="mainvsicid")
+    IcbId: Optional[int] = Field(None, alias="icbid")
+    CurrencyId: Optional[int] = Field(None, alias="currencyid")
+    TaxCodeStatusId: Optional[int] = Field(None, alias="taxcodestatusid")
 
-    RegisterDateId: Optional[int]
-    VersionDateId: Optional[int]
+    RegisterDateId: Optional[str] = Field(None, alias="registerdateid")
+    VersionDateId: Optional[str] = Field(None, alias="versiondateid")
 
-    TaxCode: str
-    OrganizationName: str
-    OrganizationShortName: Optional[str]
+    TaxCode: Optional[str] = Field(None, alias="taxcode")
+    OrganizationName: Optional[str] = Field(None, alias="organizationname")
+    OrganizationShortName: Optional[str] = Field(None, alias="organizationshortname")
 
-    en_OrganizationName: Optional[str]
-    en_OrganizationShortName: Optional[str]
+    en_OrganizationName: Optional[str] = Field(None, alias="en_organizationname")
+    en_OrganizationShortName: Optional[str] = Field(None, alias="en_organizationshortname")
 
-    CharterCapital: Optional[float]
+    CharterCapital: Optional[Decimal] = Field(None, alias="chartercapital")
+    Address: Optional[str] = Field(None, alias="address")
+    en_Address: Optional[str] = Field(None, alias="en_address")
 
-    Address: Optional[str]
-    en_Address: Optional[str]
+    Telephone: Optional[str] = Field(None, alias="telephone")
+    Fax: Optional[str] = Field(None, alias="fax")
+    Email: Optional[str] = Field(None, alias="email")
+    Website: Optional[str] = Field(None, alias="website")
+    LogoURL: Optional[str] = Field(None, alias="logourl")
 
-    Telephone: Optional[str]
-    Fax: Optional[str]
-    Email: Optional[str]
-    Website: Optional[str]
-
-    LogoURL: Optional[str]
-
-    CurrentBusinessTypeId: Optional[int]
+    CurrentBusinessTypeId: Optional[int] = Field(None, alias="currentbusinesstypeid")
 
     class Config:
-        from_attributes = True
+        allow_population_by_field_name = True
 
 
 # Các field cố định
