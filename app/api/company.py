@@ -1,14 +1,15 @@
 # app/api/company.py
 from fastapi import APIRouter, Depends, Query, HTTPException
-from app.core.auth import require_api_key
+from app.core.auth import require_api_key, verify_api_key
 from app.services.company import get_org_id_by_taxcode
 # from app.services.decode import decode_fields
 from app.database import supabase
 from app.services.credit import consume_credit
-from app.core.auth import verify_api_key
+from app.core.constants import COMPLIANCE_TABLE_MAP
 from app.core.redis import redis_client
 from app.models.model import BalanceSheet, OrganizationInfo, IncomeStatement, CashFlow, ShareHolder
-from typing import List
+from app.models.mapping import map_insurance_liability, map_tax_fee_liability
+from typing import List, Literal
 import json
 
 router = APIRouter(
@@ -96,7 +97,7 @@ def balance_sheet(
     return res.data
 
 @router.get(
-        "/company/{taxcode}/income-statement",
+        "/{taxcode}/income-statement",
         response_model=List[IncomeStatement]
         )
 def get_income_statement(taxcode: str,
@@ -137,7 +138,7 @@ def get_income_statement(taxcode: str,
 
 
 @router.get(
-        "/company/{taxcode}/cashflow",
+        "/{taxcode}/cashflow",
         response_model=List[CashFlow]
         )
 def get_cashflow(taxcode: str,
@@ -179,7 +180,7 @@ def get_cashflow(taxcode: str,
 
 
 @router.get(
-        "/company/{taxcode}/shareholders",
+        "/{taxcode}/shareholders",
         response_model=List[ShareHolder]
         )
 def get_shareholders(taxcode: str,
@@ -217,7 +218,7 @@ def get_shareholders(taxcode: str,
     redis_client.setex(cache_key, 3600, json.dumps(res.data))
     return res.data
 
-@router.get("/company/{taxcode}/structure")
+@router.get("/{taxcode}/structure")
 def get_structure(taxcode: str,
     language: str = Query("en", enum=["en", "vi"]),
     api_key=Depends(verify_api_key)
@@ -281,7 +282,7 @@ def get_structure(taxcode: str,
     
     return structure
 
-@router.get("/company/{taxcode}/personnel")
+@router.get("/{taxcode}/personnel")
 def get_personnel(taxcode: str,
     language: str = Query("en", enum=["en", "vi"])
     ):
@@ -305,33 +306,90 @@ def get_personnel(taxcode: str,
         "person": res.data
     }
 
-@router.get("/company/{taxcode}/compliance")
-def get_compliance(taxcode: str,
-    language: str = Query("en", enum=["en", "vi"])):
+@router.get("/{taxcode}/compliance")
+def get_compliance(
+    taxcode: str,
+    language: str = Query("en", enum=["en", "vi"]),
+    tablename: Literal["insuranceliability", "taxfeeliability"] = Query(...), 
+    api_key=Depends(verify_api_key)
+):
+    # 1. Get org id
     org_id = get_org_id_by_taxcode(taxcode)
 
-    # 2. Lấy tax_fee_liability theo org_id
-    res1 = (
+    table = COMPLIANCE_TABLE_MAP.get(tablename)
+    if not table:
+        raise HTTPException(status_code=400, detail="Invalid tablename")
+
+    # 1. Consume credit
+    consume_credit(api_key["api_key"])
+
+    # 2. Cache
+    cache_key = f"{table}:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    org_id = get_org_id_by_taxcode(taxcode)
+    
+    # 2. Query Supabase
+    res = (
         supabase
-        .table("tax_fee_liability")
+        .table(table)
         .select("*")
-        .eq("sourceorganizationid", org_id)
+        .eq("organizationid", org_id)
         .eq("ishistory", False)
         .execute()
     )
 
-    # 3. Lấy insurance_liability theo org_id
-    res2 = (
-        supabase
-        .table("insurance_liability")
-        .select("*")
-        .eq("sourceorganizationid", org_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Data not found")
 
-    return {
-        "taxcode": taxcode,
-        "tax_fee_liability": res1.data,
-        "insurance_liability": res2.data
-    }
+    result = []
+    # 3. Map data theo đúng docs
+    if tablename == "insuranceliability":
+        result = [
+            map_insurance_liability(row, taxcode)
+            for row in res.data
+        ]
+
+    if tablename == "taxfeeliability":
+        result = [
+            map_tax_fee_liability(row, taxcode)
+            for row in res.data
+        ]
+    
+    # 5. Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(result))
+    
+    return result
+
+# @router.get("/company/{taxcode}/compliance")
+# def get_compliance(taxcode: str,
+#     language: str = Query("en", enum=["en", "vi"])):
+#     org_id = get_org_id_by_taxcode(taxcode)
+
+#     # 2. Lấy tax_fee_liability theo org_id
+#     res1 = (
+#         supabase
+#         .table("tax_fee_liability")
+#         .select("*")
+#         .eq("sourceorganizationid", org_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     # 3. Lấy insurance_liability theo org_id
+#     res2 = (
+#         supabase
+#         .table("insurance_liability")
+#         .select("*")
+#         .eq("sourceorganizationid", org_id)
+#         .eq("ishistory", False)
+#         .execute()
+#     )
+
+#     return {
+#         "taxcode": taxcode,
+#         "tax_fee_liability": res1.data,
+#         "insurance_liability": res2.data
+#     }

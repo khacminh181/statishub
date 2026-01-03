@@ -125,3 +125,67 @@ class Structure(BaseModel):
     rightroleid: Optional[int]
 
     versiondateid: Optional[str]
+
+
+class Person(BaseModel):
+    PersonId: int = Field(..., description="The Person identifier (internal use only)")
+    PersonName: Optional[str] = Field(
+        None, description="The Person’s name"
+    )
+
+    PositionId: Optional[int] = Field(
+        None,
+        description="The position identifier. The mapping of PositionId is stored in the Position master table"
+    )
+
+    en_PositionName: Optional[str] = Field(
+        None, description="The position name"
+    )
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class InsuranceLiabilityResponse(BaseModel):
+    TaxCode: str
+    DepartmentOrganization: Optional[str]
+
+    periodid: Optional[int]
+    insurancetypeid: Optional[int]
+
+    publicdateid: Optional[str]
+    recorddateid: Optional[str]
+
+    currencyid: Optional[int]
+
+    monthowed: Optional[int]
+    numberofemployee: Optional[int]
+
+    totalvalue: Optional[Decimal]
+
+    versiondateid: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+class TaxFeeLiabilityResponse(BaseModel):
+    TaxCode: str
+    DepartmentOrganization: Optional[str]
+
+    periodid: Optional[int]
+
+    taxfeetypeid: Optional[int]
+    nationalbudgettypeid: Optional[int]
+
+    taxfeeliabilitystatusid: Optional[int]
+    enforcementtypeid: Optional[int]
+
+    publicdateid: Optional[str]
+    currencyid: Optional[int]
+
+    totalvalue: Optional[Decimal]
+
+    versiondateid: Optional[str]
+
+    class Config:
+        from_attributes = True
