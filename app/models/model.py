@@ -1,5 +1,5 @@
 from pydantic import BaseModel, create_model, Field
-from typing import Optional
+from typing import Optional, List
 from decimal import Decimal
 
 class OrganizationInfo(BaseModel):
@@ -189,3 +189,13 @@ class TaxFeeLiabilityResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class Pagination(BaseModel):
+    total: int
+    limit: int
+    offset: int
+
+class OrganizationSearchResponse(BaseModel):
+    data: List[OrganizationInfo]
+    pagination: Pagination

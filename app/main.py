@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, supabase
 
 from app.api.company import router as company_router
+from app.api.company import searchRouter as search_router
 from app.api.admin import router as admnin_router
 from fastapi.responses import HTMLResponse
 
@@ -44,7 +45,7 @@ def custom_swagger_ui():
     """)
 
 app.include_router(company_router)
-
+app.include_router(search_router)
 app.include_router(admnin_router)
 
 
