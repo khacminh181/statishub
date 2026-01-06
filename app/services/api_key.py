@@ -47,17 +47,41 @@ def get_api_key(api_key: str):
     return data or None
 
 
+# def list_api_keys(limit: int = 100) -> List[Dict]:
+#     keys = redis_client.scan_iter("apikey:sk_*")
+#     result = []
+
+#     for i, key in enumerate(keys):
+#         if i >= limit:
+#             break
+#         data = redis_client.hgetall(key)
+#         if data:
+#             data["credits"] = int(data["credits"])
+#             data["id"] = int(data["id"])
+#             result.append(data)
+
+#     return result
+
 def list_api_keys(limit: int = 100) -> List[Dict]:
     keys = redis_client.scan_iter("apikey:sk_*")
     result = []
 
-    for i, key in enumerate(keys):
-        if i >= limit:
+    for key in keys:
+        if len(result) >= limit:
             break
+
         data = redis_client.hgetall(key)
-        if data:
-            data["credits"] = int(data["credits"])
-            data["id"] = int(data["id"])
-            result.append(data)
+        if not data:
+            continue
+
+        # Redis trả string → convert
+        if int(data.get("is_active", 0)) != 1:
+            continue
+
+        data["credits"] = int(data["credits"])
+        data["id"] = int(data["id"])
+        data["is_active"] = int(data["is_active"])
+
+        result.append(data)
 
     return result

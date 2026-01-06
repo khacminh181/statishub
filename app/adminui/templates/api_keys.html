@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin – API Keys</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f4f4f4; }
+    form { display: inline; }
+  </style>
+</head>
+<body>
+
+<h2>API Keys Admin</h2>
+
+<h3>Create API Key</h3>
+<form method="post" action="/admin-ui/api-keys/create">
+  <input name="client_name" placeholder="Client name" required>
+  <input name="credits" type="number" value="1000">
+  <button>Create</button>
+</form>
+
+<hr>
+
+<table>
+  <tr>
+    <th>Client</th>
+    <th>API Key</th>
+    <th>Credits</th>
+    <th>Actions</th>
+  </tr>
+
+  {% for i in items %}
+  <tr>
+    <td>{{ i.client_name }}</td>
+    <td><code>{{ i.api_key }}</code></td>
+    <td>{{ i.credits }}</td>
+    <td>
+      <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/revoke">
+        <button>Revoke</button>
+      </form>
+
+      <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/credit">
+        <input name="amount" type="number" placeholder="+credits">
+        <button>Add</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+
+</body>
+</html>
