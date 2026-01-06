@@ -13,6 +13,9 @@ from app.adminui.router import router as admin_ui_router
 
 app = FastAPI(
     title="Statishub Company API",
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1
+    },
     version="1.0.0"
 )
 

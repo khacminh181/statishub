@@ -13,6 +13,7 @@ import os
 
 router = APIRouter(
     prefix="/admin-ui",
+    include_in_schema=False,
     dependencies=[Depends(verify_admin_ui)]
 )
 
