@@ -28,3 +28,55 @@ def map_tax_fee_liability(row: dict, taxcode: str) -> dict:
         "totalvalue": row.get("totalvalue"),
         "versiondateid": row.get("versiondateid"),
     }
+
+def map_companyvsic(
+    row: dict,
+    taxcode: str,
+    vsic_master: dict,
+    language: str = "en",
+) -> dict:
+    return {
+        "TaxCode": taxcode,
+        "VSICId": row.get("vsicid"),
+        "IsMain": row.get("ismain"),
+
+        "VSICCode": vsic_master.get("vsiccode"),
+        "VSICName": vsic_master.get("vsicname"),
+
+        "VSICLevel": vsic_master.get("vsiclevel"),
+        "VSICOrder": vsic_master.get("vsicorder"),
+
+        "VSICCodePath": vsic_master.get("vsiccodepath"),
+        "VSICNamePath": vsic_master.get("vsicnamepath"),
+
+        "en_VSICName": vsic_master.get("en_vsicname"),
+        "en_VSICNamePath": vsic_master.get("en_vsicname_path"),
+
+        "VersionDateId": vsic_master.get("versiondateid")
+    }
+
+
+def map_companyicb(
+    row: dict,
+    taxcode: str,
+    icb_master: dict,
+    language: str = "en",
+) -> dict:
+    return {
+        "TaxCode": taxcode,
+        "ICBId": row.get("icbid"),
+
+        "IcbCode": icb_master.get("icbcode"),
+        "ICBName": icb_master.get("icbname"),
+
+        "ICBLevel": icb_master.get("icblevel"),
+        "ICBOrder": icb_master.get("icborder"),
+
+        "ICBCodePath": icb_master.get("icbcodepath"),
+        "ICBNamePath": icb_master.get("icbnamepath"),
+
+        "en_ICBName": row.get("en_icbname"),
+        "en_ICBNamePath": row.get("en_icbname_path"),
+
+        "VersionDateId": icb_master.get("versiondateid")
+    }

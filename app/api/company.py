@@ -8,7 +8,7 @@ from app.services.credit import consume_credit
 from app.core.constants import COMPLIANCE_TABLE_MAP, INDUSTRY_TABLE_MAP
 from app.core.redis import redis_client
 from app.models.model import BalanceSheet, OrganizationInfo, IncomeStatement, CashFlow, ShareHolder, OrganizationSearchResponse, Person
-from app.models.mapping import map_insurance_liability, map_tax_fee_liability
+from app.models.mapping import map_insurance_liability, map_tax_fee_liability, map_companyicb, map_companyvsic
 from app.utils.helper import build_search_cache_key
 from typing import List, Literal
 import json
@@ -330,6 +330,7 @@ def get_personnel(taxcode: str,
         .in_("positionid", list(position_ids))
         .eq("organizationid", org_id)
         .eq("ishistory", False)
+        .in_("recordstatusid", [1, 6])
         .execute()
     )
 
@@ -423,59 +424,118 @@ def get_compliance(
     
     return result
 
-# @router.get("/{taxcode}/industries")
-# def get_compliance(
-#     taxcode: str,
-#     language: str = Query("en", enum=["en", "vi"]),
-#     tablename: Literal["companyvsic", "companyicb"] = Query(...), 
-#     api_key=Depends(verify_api_key)
-# ):
-#     table = INDUSTRY_TABLE_MAP.get(tablename)
-#     if not table:
-#         raise HTTPException(status_code=400, detail="Invalid tablename")
+@router.get("/{taxcode}/industries", 
+            tags=["Company Profile"]
+            )
+def get_industries(
+    taxcode: str,
+    language: str = Query("en", enum=["en", "vi"]),
+    tablename: Literal["companyvsic", "companyicb"] = Query(...),
+    api_key=Depends(verify_api_key),
+):
+    table = INDUSTRY_TABLE_MAP.get(tablename)
+    if not table:
+        raise HTTPException(status_code=400, detail="Invalid tablename")
 
-#     # 1. Consume credit
-#     consume_credit(api_key["api_key"])
+    # 1️ Consume credit
+    consume_credit(api_key["api_key"])
 
-#     # 2. Cache
-#     cache_key = f"{table}:{taxcode}:{language}"
-#     cached = redis_client.get(cache_key)
-#     if cached:
-#         return json.loads(cached)
-    
-#     org_id = get_org_id_by_taxcode(taxcode)
-    
-#     # 2. Query Supabase
-#     res = (
-#         supabase
-#         .table(table)
-#         .select("*")
-#         .eq("organizationid", org_id)
-#         .eq("ishistory", False)
-#         .execute()
-#     )
+    # 2️ Cache
+    cache_key = f"{table}:{taxcode}:{language}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
 
-#     if not res.data:
-#         raise HTTPException(status_code=404, detail="Data not found")
+    # 3️ Get org id
+    org_id = get_org_id_by_taxcode(taxcode)
+    if not org_id:
+        raise HTTPException(status_code=404, detail="Organization not found")
 
-#     result = []
-#     # 3. Map data theo đúng docs
-#     if tablename == "companyvsic":
-#         result = [
-#             map_companyvsic(row, taxcode)
-#             for row in res.data
-#         ]
+    # 4️ Query company table
+    res = (
+        supabase
+        .table(table)
+        .select("*")
+        .eq("organizationid", org_id)
+        .eq("ishistory", False)
+        .execute()
+    )
 
-#     if tablename == "companyicb":
-#         result = [
-#             map_companyicb(row, taxcode)
-#             for row in res.data
-#         ]
-    
-#     # 5. Cache result
-#     redis_client.setex(cache_key, 3600, json.dumps(result))
-    
-#     return result
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Data not found")
+
+    # =========================
+    # 5️ VSIC
+    # =========================
+    if tablename == "companyvsic":
+        vsic_ids = list({
+            row["vsicid"]
+            for row in res.data
+            if row.get("vsicid")
+        })
+
+        vsic_map = {}
+        if vsic_ids:
+            vsic_master = (
+                supabase
+                .table("cmms_dm_vsic")
+                .select("*")
+                .in_("vsicid", vsic_ids)
+                .execute()
+            )
+            vsic_map = {
+                v["vsicid"]: v
+                for v in (vsic_master.data or [])
+            }
+
+        result = [
+            map_companyvsic(
+                row=row,
+                taxcode=taxcode,
+                vsic_master=vsic_map.get(row.get("vsicid"), {}),
+                language=language,
+            )
+            for row in res.data
+        ]
+
+    # =========================
+    # 6️ ICB
+    # =========================
+    else:
+        icb_ids = list({
+            row["icbid"]
+            for row in res.data
+            if row.get("icbid")
+        })
+
+        icb_map = {}
+        if icb_ids:
+            icb_master = (
+                supabase
+                .table("cmms_dm_icb")
+                .select("*")
+                .in_("icbid", icb_ids)
+                .execute()
+            )
+            icb_map = {
+                i["icbid"]: i
+                for i in (icb_master.data or [])
+            }
+
+        result = [
+            map_companyicb(
+                row=row,
+                taxcode=taxcode,
+                icb_master=icb_map.get(row.get("icbid"), {}),
+                language=language,
+            )
+            for row in res.data
+        ]
+
+    # 7️ Cache result
+    redis_client.setex(cache_key, 3600, json.dumps(result))
+
+    return result
 
 searchRouter = APIRouter(
     prefix="",
