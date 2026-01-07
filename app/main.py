@@ -78,7 +78,7 @@ app.include_router(health_router)
 app.include_router(admin_ui_router)
 app.include_router(company_router)
 app.include_router(search_router)
-app.include_router(admin_router)
+# app.include_router(admin_router)
 
 # @app.get("/docs", include_in_schema=False)
 # def custom_swagger_ui():

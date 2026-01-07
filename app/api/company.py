@@ -1,6 +1,6 @@
 # app/api/company.py
 from fastapi import APIRouter, Depends, Query, HTTPException
-from app.core.auth import require_api_key, verify_api_key
+from app.core.auth import verify_api_key
 from app.services.company import get_org_id_by_taxcode
 # from app.services.decode import decode_fields
 from app.database import supabase
@@ -307,7 +307,7 @@ def get_personnel(taxcode: str,
     # Fetch position data from database
     position_info = (
         supabase
-        .table("position")
+        .table("dm_position")
         .select("positionid, positionname")
         .execute()
     )
