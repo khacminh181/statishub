@@ -1,23 +1,22 @@
+"""
+Admin authentication for both REST API and web UI.
+"""
 from fastapi import Header, HTTPException, Request
-import os
+from app.core.config import settings
 
-admin_key = os.getenv("ADMIN_KEY")
 
 def verify_admin(x_admin_key: str = Header(...)):
-    if x_admin_key != admin_key:
+    """Verify admin API key from request header."""
+    if x_admin_key != settings.admin_key:
         raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
 
-# def verify_admin_ui(request: Request):
-#     token = request.cookies.get("admin_key")
-#     if token != admin_key:
-#         raise HTTPException(status_code=403)
-    
 def verify_admin_ui(request: Request):
+    """Verify admin authentication for web UI using cookies."""
     if request.url.path.endswith("/login"):
         return True
 
     token = request.cookies.get("admin_key")
-    if token != admin_key:
+    if token != settings.admin_key:
         raise HTTPException(status_code=403)

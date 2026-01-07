@@ -9,7 +9,7 @@ from app.services.api_key import (
     add_credit,
     list_api_keys,
 )
-import os
+from app.core.config import settings
 
 router = APIRouter(
     prefix="/admin-ui",
@@ -18,8 +18,6 @@ router = APIRouter(
 )
 
 templates = Jinja2Templates(directory="app/adminui/templates")
-
-admin_key = os.getenv("ADMIN_KEY")
 
 # @router.post("/login")
 # def admin_login(response: Response, key: str = Form(...)):
@@ -38,7 +36,7 @@ def admin_login_page(request: Request):
 
 @router.post("/login")
 def admin_login(response: Response, key: str = Form(...)):
-    if key != admin_key:
+    if key != settings.admin_key:
         raise HTTPException(status_code=403)
 
     response = RedirectResponse("/admin-ui/api-keys", status_code=303)
@@ -46,13 +44,13 @@ def admin_login(response: Response, key: str = Form(...)):
         "admin_key",
         key,
         httponly=True,
+        secure=True,
         samesite="lax"
     )
     return response
 
 @router.get("/api-keys", response_class=HTMLResponse)
 def ui_list_api_keys(request: Request):
-    print("hehe")
     items = list_api_keys(limit=100)
     return templates.TemplateResponse(
         "api_keys.html",

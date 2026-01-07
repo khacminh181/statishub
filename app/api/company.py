@@ -304,25 +304,23 @@ def get_personnel(taxcode: str,
         return json.loads(cached)   
     org_id = get_org_id_by_taxcode(taxcode)
 
-    position_ids = set()
-    position_ids = [1,2,3,4,5,6,7,8,9]
-    position_map = {}
-    # position_info = (
-    #     supabase
-    #     .table("position")
-    #     .select("positionid, positionname")
-    #     .execute()
-    # )
+    # Fetch position data from database
+    position_info = (
+        supabase
+        .table("position")
+        .select("positionid, positionname")
+        .execute()
+    )
 
-    # position_ids = [
-    #     o.positionid
-    #     for o in position_info.data
-    # ]
+    position_ids = [
+        o["positionid"]
+        for o in position_info.data
+    ]
 
-    # position_map = {
-    #     o["positionid"]: o["positionname"] 
-    #     for o in position_info.data
-    # }
+    position_map = {
+        o["positionid"]: o["positionname"]
+        for o in position_info.data
+    }
 
     # 2. Lấy person theo org_id
     person_pos = (

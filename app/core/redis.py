@@ -1,13 +1,12 @@
+"""
+Redis client initialization for caching and API key storage.
+"""
 import redis
-import os
-
-host = os.getenv("REDIS_HOST")
-port = os.getenv("REDIS_PORT")
-db = os.getenv("REDIS_DB")
+from app.core.config import settings
 
 redis_client = redis.Redis(
-    host=host,
-    port=port,
-    db=db,
+    host=settings.redis_host,
+    port=settings.redis_port,
+    db=settings.redis_db,
     decode_responses=True
 )
