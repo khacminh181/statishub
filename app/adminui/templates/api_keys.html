@@ -4,10 +4,12 @@
   <title>Admin – API Keys</title>
   <style>
     body { font-family: sans-serif; padding: 24px; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #ddd; padding: 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+    td, th { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
     th { background: #f4f4f4; }
-    form { display: inline; }
+    form { display: inline-block; margin: 4px 0; }
+    input { padding: 4px; }
+    code { font-size: 12px; }
   </style>
 </head>
 <body>
@@ -28,14 +30,37 @@
     <th>Client</th>
     <th>API Key</th>
     <th>Credits</th>
+    <th>Rate Limit (req/hour)</th>
     <th>Actions</th>
   </tr>
 
   {% for i in items %}
   <tr>
     <td>{{ i.client_name }}</td>
-    <td><code>{{ i.api_key }}</code></td>
+
+    <td>
+      <code>{{ i.api_key }}</code>
+    </td>
+
+    <!-- RATE LIMIT -->
+    <td>
+      <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/rate-limit">
+        <input
+          type="number"
+          name="limit"
+          value="{{ i.rate_limit }}"
+          style="width: 80px"
+          min="1"
+        />
+        <button>Update</button>
+      </form> 
+    </td>
+
     <td>{{ i.credits }}</td>
+
+    
+
+    <!-- ACTIONS -->
     <td>
       <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/revoke">
         <button>Revoke</button>

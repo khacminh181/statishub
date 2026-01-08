@@ -7,7 +7,7 @@ from app.database import supabase
 from app.services.credit import consume_credit
 from app.core.constants import COMPLIANCE_TABLE_MAP, INDUSTRY_TABLE_MAP
 from app.core.redis import redis_client
-from app.core.rate_limit import hourly_rate_limit_dep
+from app.core.dependency import rate_limit_dep
 from app.models.model import BalanceSheet, OrganizationInfo, IncomeStatement, CashFlow, ShareHolder, OrganizationSearchResponse, Person
 from app.models.mapping import map_insurance_liability, map_tax_fee_liability, map_companyicb, map_companyvsic
 from app.utils.helper import build_search_cache_key
@@ -19,7 +19,7 @@ router = APIRouter(
     # tags=["Company"],
     # dependencies=[Depends(require_api_key)]
     dependencies=[Depends(verify_api_key),
-                  Depends(hourly_rate_limit_dep()) ]
+                  Depends(rate_limit_dep) ]
 )
 
 @router.get(

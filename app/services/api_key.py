@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Dict
 from app.core.redis import redis_client
+from app.services.rate_limit import get_api_rate_limit
 
 API_KEY_TTL = 60 * 60 * 24 * 30  # 30 ngày
 
@@ -81,6 +82,7 @@ def list_api_keys(limit: int = 100) -> List[Dict]:
         data["credits"] = int(data["credits"])
         data["id"] = int(data["id"])
         data["is_active"] = int(data["is_active"])
+        data["rate_limit"] = get_api_rate_limit(data["api_key"])
 
         result.append(data)
 

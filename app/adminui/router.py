@@ -11,6 +11,10 @@ from app.services.api_key import (
 )
 from app.core.config import settings
 
+from app.services.rate_limit import (
+    set_api_rate_limit
+)
+
 router = APIRouter(
     prefix="/admin-ui",
     include_in_schema=False,
@@ -83,3 +87,12 @@ def ui_add_credit(
 ):
     add_credit(api_key, amount)
     return RedirectResponse("/admin-ui/api-keys", status_code=303)
+
+@router.post("/api-keys/{api_key}/rate-limit")
+def ui_set_rate_limit(
+    api_key: str,
+    limit: int = Form(...)
+):
+    set_api_rate_limit(api_key, limit)
+    return RedirectResponse("/admin-ui/api-keys", status_code=303)
+

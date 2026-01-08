@@ -8,6 +8,8 @@ from app.services.api_key import (
     list_api_keys,
 )
 
+from app.services.rate_limit import set_api_rate_limit
+
 router = APIRouter(
     prefix="/admin",
     tags=["Admin - API Keys"],
@@ -45,3 +47,12 @@ def admin_add_credit(api_key: str, amount: int):
     if credit is None:
         return {"error": "Not found"}
     return {"credits": credit}
+
+@router.post("/admin/api-keys/{api_key}/rate-limit") 
+def update_rate_limit(
+    api_key: str,
+    endpoint: str,
+    limit_per_hour: int,
+):
+    set_api_rate_limit(api_key, endpoint, limit_per_hour)
+    return {"ok": True}
