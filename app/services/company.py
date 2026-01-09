@@ -1,11 +1,25 @@
-# app/services/company.py
-from fastapi import HTTPException
+"""
+Company data retrieval services.
+"""
+from app.core.exceptions import OrganizationNotFoundError
 from app.database import supabase
 
+
 def get_org_id_by_taxcode(taxcode: str) -> str:
+    """
+    Get organization ID by taxcode.
+
+    Args:
+        taxcode: The company taxcode
+
+    Returns:
+        The organization ID
+
+    Raises:
+        OrganizationNotFoundError: If organization is not found
+    """
     res = (
-        supabase
-        .table("organization_information")
+        supabase.table("organization_information")
         .select("organizationid")
         .eq("taxcode", taxcode)
         .eq("ishistory", False)
@@ -14,6 +28,6 @@ def get_org_id_by_taxcode(taxcode: str) -> str:
     )
 
     if not res.data:
-        raise HTTPException(404, "Organization not found")
+        raise OrganizationNotFoundError(taxcode=taxcode)
 
     return res.data["organizationid"]

@@ -1,4 +1,11 @@
-def map_insurance_liability(row: dict, taxcode: str) -> dict:
+"""
+Data mapping functions for transforming database records to API responses.
+"""
+from typing import Dict
+
+
+def map_insurance_liability(row: Dict, taxcode: str) -> Dict:
+    """Map insurance liability database record to API response format."""
     return {
         "TaxCode": taxcode,
         "DepartmentOrganization": row.get("departmentorganizationid"),
@@ -14,7 +21,8 @@ def map_insurance_liability(row: dict, taxcode: str) -> dict:
     }
 
 
-def map_tax_fee_liability(row: dict, taxcode: str) -> dict:
+def map_tax_fee_liability(row: Dict, taxcode: str) -> Dict:
+    """Map tax/fee liability database record to API response format."""
     return {
         "TaxCode": taxcode,
         "DepartmentOrganization": row.get("departmentorganizationid"),
@@ -29,54 +37,47 @@ def map_tax_fee_liability(row: dict, taxcode: str) -> dict:
         "versiondateid": row.get("versiondateid"),
     }
 
+
 def map_companyvsic(
-    row: dict,
+    row: Dict,
     taxcode: str,
-    vsic_master: dict,
+    vsic_master: Dict,
     language: str = "en",
-) -> dict:
+) -> Dict:
+    """Map company VSIC (Vietnam Standard Industrial Classification) to API response."""
     return {
         "TaxCode": taxcode,
         "VSICId": row.get("vsicid"),
         "IsMain": row.get("ismain"),
-
         "VSICCode": vsic_master.get("vsiccode"),
         "VSICName": vsic_master.get("vsicname"),
-
         "VSICLevel": vsic_master.get("vsiclevel"),
         "VSICOrder": vsic_master.get("vsicorder"),
-
         "VSICCodePath": vsic_master.get("vsiccodepath"),
         "VSICNamePath": vsic_master.get("vsicnamepath"),
-
         "en_VSICName": vsic_master.get("en_vsicname"),
         "en_VSICNamePath": vsic_master.get("en_vsicname_path"),
-
-        "VersionDateId": vsic_master.get("versiondateid")
+        "VersionDateId": vsic_master.get("versiondateid"),
     }
 
 
 def map_companyicb(
-    row: dict,
+    row: Dict,
     taxcode: str,
-    icb_master: dict,
+    icb_master: Dict,
     language: str = "en",
-) -> dict:
+) -> Dict:
+    """Map company ICB (Industry Classification Benchmark) to API response."""
     return {
         "TaxCode": taxcode,
         "ICBId": row.get("icbid"),
-
         "IcbCode": icb_master.get("icbcode"),
         "ICBName": icb_master.get("icbname"),
-
         "ICBLevel": icb_master.get("icblevel"),
         "ICBOrder": icb_master.get("icborder"),
-
         "ICBCodePath": icb_master.get("icbcodepath"),
         "ICBNamePath": icb_master.get("icbnamepath"),
-
         "en_ICBName": row.get("en_icbname"),
         "en_ICBNamePath": row.get("en_icbname_path"),
-
-        "VersionDateId": icb_master.get("versiondateid")
+        "VersionDateId": icb_master.get("versiondateid"),
     }

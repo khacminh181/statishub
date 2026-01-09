@@ -1,15 +1,18 @@
 """
 API key authentication and verification.
 """
+from typing import Dict
+
 from fastapi import Header
-from app.core.redis import redis_client
+
 from app.core.exceptions import APIKeyInvalidError
 from app.core.logging import get_logger
+from app.core.redis import redis_client
 
 logger = get_logger(__name__)
 
 
-def verify_api_key(x_api_key: str = Header(...)):
+def verify_api_key(x_api_key: str = Header(...)) -> Dict:
     """
     Verify API key from Redis and return client information.
 
@@ -17,7 +20,7 @@ def verify_api_key(x_api_key: str = Header(...)):
         x_api_key: API key from request header
 
     Returns:
-        dict: Client information including id, api_key, client_name, credits
+        Client information including id, api_key, client_name, credits
 
     Raises:
         APIKeyInvalidError: If API key is invalid or inactive
@@ -35,5 +38,5 @@ def verify_api_key(x_api_key: str = Header(...)):
         "id": int(data["id"]),
         "api_key": x_api_key,
         "client_name": data["client_name"],
-        "credits": int(data["credits"])
+        "credits": int(data["credits"]),
     }

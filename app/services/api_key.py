@@ -1,13 +1,18 @@
+"""
+API key management service for creating, revoking, and managing API keys.
+"""
 import uuid
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List, Optional
+
 from app.core.redis import redis_client
 from app.services.rate_limit import get_api_rate_limit
 
-API_KEY_TTL = 60 * 60 * 24 * 30  # 30 ngày
+API_KEY_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 days
 
 
 def create_api_key(client_name: str, credits: int = 1000) -> Dict:
+    """Create a new API key for a client."""
     api_key = f"sk_{uuid.uuid4().hex}"
     redis_key = f"apikey:{api_key}"
 
@@ -21,12 +26,13 @@ def create_api_key(client_name: str, credits: int = 1000) -> Dict:
     }
 
     redis_client.hset(redis_key, mapping=data)
-    redis_client.expire(redis_key, API_KEY_TTL)
+    redis_client.expire(redis_key, API_KEY_TTL_SECONDS)
 
     return data
 
 
-def revoke_api_key(api_key: str):
+def revoke_api_key(api_key: str) -> bool:
+    """Revoke an API key by setting it as inactive."""
     redis_key = f"apikey:{api_key}"
     if not redis_client.exists(redis_key):
         return False
@@ -35,7 +41,8 @@ def revoke_api_key(api_key: str):
     return True
 
 
-def add_credit(api_key: str, amount: int):
+def add_credit(api_key: str, amount: int) -> Optional[int]:
+    """Add credits to an API key. Returns new credit balance or None if key not found."""
     redis_key = f"apikey:{api_key}"
     if not redis_client.exists(redis_key):
         return None
@@ -43,27 +50,16 @@ def add_credit(api_key: str, amount: int):
     return redis_client.hincrby(redis_key, "credits", amount)
 
 
-def get_api_key(api_key: str):
+def get_api_key(api_key: str) -> Optional[Dict]:
+    """Get API key details."""
     data = redis_client.hgetall(f"apikey:{api_key}")
-    return data or None
+    if not data:
+        return None
+    return data
 
-
-# def list_api_keys(limit: int = 100) -> List[Dict]:
-#     keys = redis_client.scan_iter("apikey:sk_*")
-#     result = []
-
-#     for i, key in enumerate(keys):
-#         if i >= limit:
-#             break
-#         data = redis_client.hgetall(key)
-#         if data:
-#             data["credits"] = int(data["credits"])
-#             data["id"] = int(data["id"])
-#             result.append(data)
-
-#     return result
 
 def list_api_keys(limit: int = 100) -> List[Dict]:
+    """List all active API keys with their metadata."""
     keys = redis_client.scan_iter("apikey:sk_*")
     result = []
 
@@ -75,10 +71,11 @@ def list_api_keys(limit: int = 100) -> List[Dict]:
         if not data:
             continue
 
-        # Redis trả string → convert
+        # Skip inactive keys
         if int(data.get("is_active", 0)) != 1:
             continue
 
+        # Convert Redis string values to proper types
         data["credits"] = int(data["credits"])
         data["id"] = int(data["id"])
         data["is_active"] = int(data["is_active"])
