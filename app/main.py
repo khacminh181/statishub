@@ -1,6 +1,7 @@
 """
 Main FastAPI application entry point.
 """
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -12,6 +13,7 @@ from app.core.config import settings
 from app.core.exceptions import StatishubException
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import LoggingMiddleware, RequestIDMiddleware, setup_cors
+from app.core.security_headers import SecurityHeadersMiddleware
 
 setup_logging()
 logger = get_logger(__name__)
@@ -23,15 +25,16 @@ app = FastAPI(
     debug=settings.debug,
 )
 
+# Middleware order matters: first added = last executed
+# Security headers should be applied to all responses
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(LoggingMiddleware)
 setup_cors(app)
 
 
 @app.exception_handler(StatishubException)
-async def statishub_exception_handler(
-    request: Request, exc: StatishubException
-) -> JSONResponse:
+async def statishub_exception_handler(request: Request, exc: StatishubException) -> JSONResponse:
     """Handle custom application exceptions."""
     request_id = getattr(request.state, "request_id", "unknown")
     logger.error(
@@ -66,4 +69,3 @@ app.include_router(health_router)
 app.include_router(admin_ui_router)
 app.include_router(company_router)
 app.include_router(search_router)
-

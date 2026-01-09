@@ -18,6 +18,7 @@
 
 <h3>Create API Key</h3>
 <form method="post" action="/admin-ui/api-keys/create">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input name="client_name" placeholder="Client name" required>
   <input name="credits" type="number" value="1000">
   <button>Create</button>
@@ -45,6 +46,7 @@
     <!-- RATE LIMIT -->
     <td>
       <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/rate-limit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input
           type="number"
           name="limit"
@@ -53,7 +55,7 @@
           min="1"
         />
         <button>Update</button>
-      </form> 
+      </form>
     </td>
 
     <td>{{ i.credits }}</td>
@@ -63,10 +65,12 @@
     <!-- ACTIONS -->
     <td>
       <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/revoke">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button>Revoke</button>
       </form>
 
       <form method="post" action="/admin-ui/api-keys/{{ i.api_key }}/credit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input name="amount" type="number" placeholder="+credits">
         <button>Add</button>
       </form>

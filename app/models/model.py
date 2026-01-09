@@ -2,6 +2,7 @@ from pydantic import BaseModel, create_model, Field
 from typing import Optional, List
 from decimal import Decimal
 
+
 class OrganizationInfo(BaseModel):
     BusinessTypeId: Optional[int] = Field(None, alias="businesstypeid")
     LocationId: Optional[int] = Field(None, alias="locationid")
@@ -47,44 +48,22 @@ base_fields = {
 }
 
 # Sinh 322 chỉ tiêu BS1 -> BS322 (kiểu số)
-bs_fields = {
-    f"bs{i}": (Optional[Decimal], None)
-    for i in range(1, 323)
-}
+bs_fields = {f"bs{i}": (Optional[Decimal], None) for i in range(1, 323)}
 
 # Gộp lại thành BalanceSheet
-BalanceSheet = create_model(
-    "BalanceSheet",
-    **base_fields,
-    **bs_fields
-)
+BalanceSheet = create_model("BalanceSheet", **base_fields, **bs_fields)
 
 # Sinh 192 chỉ tiêu IS1 -> IS192 (kiểu số)
-is_fields = {
-    f"is{i}": (Optional[Decimal], None)
-    for i in range(1, 193)
-}
+is_fields = {f"is{i}": (Optional[Decimal], None) for i in range(1, 193)}
 
 # Gộp lại thành IncomeStatement
-IncomeStatement = create_model(
-    "IncomeStatement",
-    **base_fields,
-    **is_fields
-)
+IncomeStatement = create_model("IncomeStatement", **base_fields, **is_fields)
 
 # Sinh 211 chỉ tiêu CF1 -> CF211 (kiểu số)
-cf_fields = {
-    f"cf{i}": (Optional[Decimal], None)
-    for i in range(1, 212)
-}
+cf_fields = {f"cf{i}": (Optional[Decimal], None) for i in range(1, 212)}
 
 # Gộp lại thành IncomeStatement
-CashFlow = create_model(
-    "CashFlow",
-    **base_fields,
-    isdirect=(bool, ...),
-    **cf_fields
-)
+CashFlow = create_model("CashFlow", **base_fields, isdirect=(bool, ...), **cf_fields)
 
 
 class ShareHolder(BaseModel):
@@ -129,18 +108,14 @@ class Structure(BaseModel):
 
 class Person(BaseModel):
     PersonId: int = Field(..., description="The Person identifier (internal use only)")
-    PersonName: Optional[str] = Field(
-        None, description="The Person’s name"
-    )
+    PersonName: Optional[str] = Field(None, description="The Person’s name")
 
     PositionId: Optional[int] = Field(
         None,
-        description="The position identifier. The mapping of PositionId is stored in the Position master table"
+        description="The position identifier. The mapping of PositionId is stored in the Position master table",
     )
 
-    en_PositionName: Optional[str] = Field(
-        None, description="The position name"
-    )
+    en_PositionName: Optional[str] = Field(None, description="The position name")
 
     class Config:
         allow_population_by_field_name = True
@@ -167,6 +142,7 @@ class InsuranceLiabilityResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class TaxFeeLiabilityResponse(BaseModel):
     TaxCode: str
@@ -195,6 +171,7 @@ class Pagination(BaseModel):
     total: int
     limit: int
     offset: int
+
 
 class OrganizationSearchResponse(BaseModel):
     data: List[OrganizationInfo]

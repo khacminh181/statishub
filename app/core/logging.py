@@ -1,6 +1,7 @@
 """
 Structured logging configuration for the application.
 """
+
 import logging
 import sys
 from app.core.config import settings
@@ -14,9 +15,7 @@ def setup_logging():
     logging.basicConfig(
         level=getattr(logging, settings.log_level),
         format=LOG_FORMAT,
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
     # Set third-party loggers to WARNING to reduce noise

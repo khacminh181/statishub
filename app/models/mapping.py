@@ -1,6 +1,7 @@
 """
 Data mapping functions for transforming database records to API responses.
 """
+
 from typing import Dict
 
 

@@ -2,8 +2,10 @@
 Application configuration management using Pydantic settings.
 Validates all required environment variables at startup.
 """
+
 import os
-from typing import List
+import re
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 
@@ -19,12 +21,34 @@ class Settings(BaseSettings):
     redis_host: str = Field(default="localhost", description="Redis host")
     redis_port: int = Field(default=6379, description="Redis port")
     redis_db: int = Field(default=0, description="Redis database number")
+    redis_password: Optional[str] = Field(default=None, description="Redis password")
+    redis_ssl: bool = Field(default=False, description="Use SSL for Redis connection")
 
     # Admin
-    admin_key: str = Field(..., description="Admin authentication key")
+    admin_key: str = Field(
+        ..., min_length=16, description="Admin authentication key (min 16 chars)"
+    )
+
+    @field_validator("admin_key")
+    def validate_admin_key(cls, v):
+        """Validate admin key meets security requirements."""
+        if len(v) < 16:
+            raise ValueError("admin_key must be at least 16 characters long")
+        # In production, require more complexity
+        if os.getenv("ENVIRONMENT", "production") == "production":
+            has_upper = bool(re.search(r"[A-Z]", v))
+            has_lower = bool(re.search(r"[a-z]", v))
+            has_digit = bool(re.search(r"\d", v))
+            if not (has_upper and has_lower and has_digit):
+                raise ValueError(
+                    "admin_key must contain uppercase, lowercase, and numeric characters in production"
+                )
+        return v
 
     # Application
-    environment: str = Field(default="production", description="Environment: development/staging/production")
+    environment: str = Field(
+        default="production", description="Environment: development/staging/production"
+    )
     debug: bool = Field(default=False, description="Debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
 
