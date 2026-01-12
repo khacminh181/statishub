@@ -40,11 +40,11 @@ class OrganizationInfo(BaseModel):
 
 # Các field cố định
 base_fields = {
-    "taxcode": (str, ...),
-    "periodid": (int, ...),
-    "publicdateid": (str, ...),
-    "reportformid": (int, ...),
-    "reporttypeid": (int, ...),
+    "taxcode": (Optional[str], None),
+    "periodid": (Optional[int], None),
+    "publicdateid": (Optional[str], None),
+    "reportformid": (Optional[int], None),
+    "reporttypeid": (Optional[int], None)
 }
 
 # Sinh 322 chỉ tiêu BS1 -> BS322 (kiểu số)
