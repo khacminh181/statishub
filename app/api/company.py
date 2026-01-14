@@ -2,12 +2,20 @@
 Company API endpoints for financial and organizational data.
 """
 
+import asyncio
 import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.auth import verify_api_key
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Thread pool executor for async database operations
+_db_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="db_worker")
 from app.core.constants import COMPLIANCE_TABLE_MAP, INDUSTRY_TABLE_MAP
 from app.core.dependency import rate_limit_dep
 from app.core.exceptions import OrganizationNotFoundError
@@ -49,12 +57,13 @@ def get_company(
     api_key: Dict = Depends(verify_api_key),
 ) -> Dict:
     """Get company profile by taxcode."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("company", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     res = (
         supabase.table("organization_information")
@@ -79,12 +88,13 @@ def get_balance_sheet(
     api_key: Dict = Depends(verify_api_key),
 ) -> List[Dict]:
     """Get balance sheet data for a company."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("balance-sheet", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
@@ -114,12 +124,13 @@ def get_income_statement(
     api_key: Dict = Depends(verify_api_key),
 ) -> List[Dict]:
     """Get income statement data for a company."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("income-statement", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
@@ -145,12 +156,13 @@ def get_cashflow(
     api_key: Dict = Depends(verify_api_key),
 ) -> List[Dict]:
     """Get cashflow data for a company."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("cashflow", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
@@ -178,12 +190,13 @@ def get_shareholders(
     api_key: Dict = Depends(verify_api_key),
 ) -> List[Dict]:
     """Get shareholders data for a company."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("shareholders", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
@@ -202,20 +215,8 @@ def get_shareholders(
     return result
 
 
-@router.get("/{taxcode}/structure", tags=["Ownership & People"])
-def get_structure(
-    taxcode: str,
-    language: str = Query("en", enum=["en", "vi"]),
-    api_key: Dict = Depends(verify_api_key),
-) -> List[Dict]:
-    """Get organizational structure/relationships for a company."""
-    consume_credit(api_key["api_key"])
-
-    cache_key = build_cache_key("structure", taxcode, language)
-    cached = get_cached(cache_key)
-    if cached:
-        return cached
-
+def _fetch_structure_data(taxcode: str) -> List[Dict]:
+    """Fetch structure data in thread pool (blocking operation)."""
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
         supabase.table("organization_role")
@@ -225,20 +226,31 @@ def get_structure(
         .execute()
     )
 
+    # Return empty array if no relationships exist
     if not res.data:
-        raise HTTPException(404, "Structure not found")
+        return []
 
-    # Get related organization taxcodes
-    org_ids = {r["rightorganizationid"] for r in res.data}
-    org_info = (
-        supabase.table("organization_information")
-        .select("organizationid, taxcode")
-        .in_("organizationid", list(org_ids))
-        .execute()
-    )
-    org_map = {o["organizationid"]: o["taxcode"] for o in org_info.data}
+    # Get related organization taxcodes with error handling and batching
+    org_ids = list({r["rightorganizationid"] for r in res.data})
+    org_map: Dict = {}
 
-    result = [
+    # Batch enrichment to prevent massive IN clauses
+    MAX_ENRICHMENT_BATCH = 100
+    for i in range(0, len(org_ids), MAX_ENRICHMENT_BATCH):
+        batch_ids = org_ids[i : i + MAX_ENRICHMENT_BATCH]
+        try:
+            org_info = (
+                supabase.table("organization_information")
+                .select("organizationid, taxcode")
+                .in_("organizationid", batch_ids)
+                .execute()
+            )
+            org_map.update({o["organizationid"]: o["taxcode"] for o in org_info.data})
+        except Exception as e:
+            logger.warning(f"Failed to enrich structure batch {i // MAX_ENRICHMENT_BATCH}: {e}")
+            # Continue with partial enrichment - graceful degradation
+
+    return [
         {
             "LeftTaxCode": taxcode,
             "RightTaxCode": org_map.get(r["rightorganizationid"]),
@@ -248,6 +260,32 @@ def get_structure(
         }
         for r in res.data
     ]
+
+
+@router.get("/{taxcode}/structure", tags=["Ownership & People"])
+async def get_structure(
+    taxcode: str,
+    language: str = Query("en", enum=["en", "vi"]),
+    api_key: Dict = Depends(verify_api_key),
+) -> List[Dict]:
+    """Get organizational structure/relationships for a company."""
+    # Check cache first before consuming credit
+    cache_key = build_cache_key("structure", taxcode, language)
+    cached = get_cached(cache_key)
+    if cached:
+        return cached
+
+    consume_credit(api_key["api_key"])
+
+    # Run blocking DB operation in thread pool to avoid blocking event loop
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(_db_executor, _fetch_structure_data, taxcode)
+    except OrganizationNotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Structure query failed for {taxcode}: {e}")
+        raise HTTPException(500, "Failed to retrieve structure data")
 
     set_cached(cache_key, result)
     return result
@@ -260,12 +298,13 @@ def get_personnel(
     api_key: Dict = Depends(verify_api_key),
 ) -> List[Dict]:
     """Get personnel/management data for a company."""
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key("personnel", taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
 
@@ -327,24 +366,31 @@ def get_compliance(
     if not table:
         raise HTTPException(400, "Invalid tablename")
 
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key(table, taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
 
-    org_id = get_org_id_by_taxcode(taxcode)
-    res = (
-        supabase.table(table)
-        .select("*")
-        .eq("organizationid", org_id)
-        .eq("ishistory", False)
-        .execute()
-    )
+    consume_credit(api_key["api_key"])
+
+    try:
+        org_id = get_org_id_by_taxcode(taxcode)
+        res = (
+            supabase.table(table)
+            .select("*")
+            .eq("organizationid", org_id)
+            .eq("ishistory", False)
+            .execute()
+        )
+    except OrganizationNotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch compliance data for {taxcode}: {e}")
+        raise HTTPException(500, "Failed to retrieve compliance data")
 
     if not res.data:
-        raise HTTPException(404, "Data not found")
+        raise HTTPException(404, f"No {tablename} data found for organization")
 
     if tablename == "insuranceliability":
         result = [map_insurance_liability(row, taxcode) for row in res.data]
@@ -367,12 +413,13 @@ def get_industries(
     if not table:
         raise HTTPException(400, "Invalid tablename")
 
-    consume_credit(api_key["api_key"])
-
+    # Check cache first before consuming credit
     cache_key = build_cache_key(table, taxcode, language)
     cached = get_cached(cache_key)
     if cached:
         return cached
+
+    consume_credit(api_key["api_key"])
 
     org_id = get_org_id_by_taxcode(taxcode)
     res = (
@@ -446,51 +493,64 @@ def _sanitize_search_input(name: str) -> str:
     return sanitized
 
 
-@searchRouter.get("/search", response_model=OrganizationSearchResponse, tags=["Search"])
-def search_organization(
-    name: str = Query(..., min_length=1, max_length=200, description="Organization name"),
-    limit: int = Query(10, ge=1, le=50),
-    offset: int = Query(0, ge=0),
-    api_key: Dict = Depends(verify_api_key),
-) -> Dict:
-    """Search organizations by name."""
-    consume_credit(api_key["api_key"])
+# Columns to select for search results (avoid SELECT *)
+SEARCH_COLUMNS = (
+    "taxcode, organizationid, organizationname, en_organizationname, "
+    "organizationshortname, en_organizationshortname, chartercapital, "
+    "address, en_address, activestatusid, mainvsicid, registerdateid"
+)
 
-    # Sanitize input to prevent filter injection
-    safe_name = _sanitize_search_input(name)
-    if not safe_name:
-        return {"data": [], "pagination": {"total": 0, "limit": limit, "offset": offset}}
 
-    cache_key = build_search_cache_key(safe_name, limit, offset)
-    cached = get_cached(cache_key)
-    if cached:
-        return cached
-
+def _execute_search_query(safe_name: str, limit: int, offset: int) -> Dict:
+    """Execute search query in thread pool (blocking operation)."""
     keyword = f"%{safe_name}%"
 
-    # Query data
+    # Single query with count - combines data and count into one request
     data_resp = (
         supabase.table("organization_information")
-        .select("*")
+        .select(SEARCH_COLUMNS, count="exact")
         .eq("ishistory", False)
         .or_(f"organizationname.ilike.{keyword},en_organizationname.ilike.{keyword}")
         .range(offset, offset + limit - 1)
         .execute()
     )
 
-    # Query total count
-    count_resp = (
-        supabase.table("organization_information")
-        .select("organizationid", count="exact")
-        .eq("ishistory", False)
-        .or_(f"organizationname.ilike.{keyword},en_organizationname.ilike.{keyword}")
-        .execute()
-    )
-
-    result = {
+    return {
         "data": data_resp.data or [],
-        "pagination": {"total": count_resp.count or 0, "limit": limit, "offset": offset},
+        "pagination": {"total": data_resp.count or 0, "limit": limit, "offset": offset},
     }
+
+
+@searchRouter.get("/search", response_model=OrganizationSearchResponse, tags=["Search"])
+async def search_organization(
+    name: str = Query(..., min_length=1, max_length=200, description="Organization name"),
+    limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    api_key: Dict = Depends(verify_api_key),
+) -> Dict:
+    """Search organizations by name."""
+    # Sanitize input to prevent filter injection
+    safe_name = _sanitize_search_input(name)
+    if not safe_name:
+        return {"data": [], "pagination": {"total": 0, "limit": limit, "offset": offset}}
+
+    # Check cache first before consuming credit
+    cache_key = build_search_cache_key(safe_name, limit, offset)
+    cached = get_cached(cache_key)
+    if cached:
+        return cached
+
+    consume_credit(api_key["api_key"])
+
+    # Run blocking DB operation in thread pool to avoid blocking event loop
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            _db_executor, _execute_search_query, safe_name, limit, offset
+        )
+    except Exception as e:
+        logger.error(f"Search query failed for '{safe_name}': {e}")
+        raise HTTPException(500, "Search operation failed")
 
     set_cached(cache_key, result)
     return result

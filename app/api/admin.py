@@ -99,7 +99,7 @@ def admin_add_credit(api_key: str, request: AddCreditRequest) -> Dict:
 
 
 @router.post("/api-keys/{api_key}/rate-limit")
-def admin_set_rate_limit(api_key: str, request: SetRateLimitRequest) -> Dict[str, bool]:
+def admin_set_rate_limit(api_key: str, request: SetRateLimitRequest) -> Dict:
     """Set rate limit for an API key with validated input."""
     # Verify key exists first
     if not get_api_key(api_key):
