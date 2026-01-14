@@ -1,20 +1,27 @@
 """
 Tests for credit consumption system.
+
+Credit consumption now uses atomic Lua scripts via evalsha.
 """
+
 import pytest
 from app.core.exceptions import CreditExhaustedError
+from app.core.lua_scripts import consume_credit_script
 
 
 @pytest.mark.unit
 def test_consume_credit_success(mock_redis):
-    """Test successful credit consumption."""
+    """Test successful credit consumption with Lua script."""
     from app.services.credit import consume_credit
 
-    mock_redis.hincrby.return_value = 99
+    # Reset cached script SHA to ensure script_load is called
+    consume_credit_script.reset()
 
-    consume_credit("test_api_key")
+    # The mock_redis fixture already sets up smart evalsha handling
+    # that returns [99, 1] for credit scripts
+    result = consume_credit("test_api_key")
 
-    mock_redis.hincrby.assert_called_once_with("apikey:test_api_key", "credits", -1)
+    assert result == 99
 
 
 @pytest.mark.unit
@@ -22,21 +29,27 @@ def test_consume_credit_exhausted(mock_redis):
     """Test credit consumption when credits are exhausted."""
     from app.services.credit import consume_credit
 
-    mock_redis.hincrby.return_value = -1
+    consume_credit_script.reset()
+
+    # Override evalsha to simulate exhausted credits
+    mock_redis.evalsha.side_effect = None
+    mock_redis.evalsha.return_value = [0, 0]
 
     with pytest.raises(CreditExhaustedError):
         consume_credit("test_api_key")
 
-    # Should restore the credit
-    assert mock_redis.hincrby.call_count == 2
-
 
 @pytest.mark.unit
 def test_consume_credit_exactly_zero(mock_redis):
-    """Test credit consumption when exactly 0 credits remain."""
+    """Test credit consumption when exactly 0 credits remain after consumption."""
     from app.services.credit import consume_credit
 
-    mock_redis.hincrby.return_value = 0
+    consume_credit_script.reset()
 
-    # Should succeed with 0 credits remaining
-    consume_credit("test_api_key")
+    # Override evalsha to simulate zero balance after successful consumption
+    mock_redis.evalsha.side_effect = None
+    mock_redis.evalsha.return_value = [0, 1]
+
+    # Should succeed with 0 credits remaining after this consumption
+    result = consume_credit("test_api_key")
+    assert result == 0
