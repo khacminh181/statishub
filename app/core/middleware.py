@@ -1,6 +1,7 @@
 """
 Custom middleware for request tracking, logging, and security.
 """
+
 import time
 import uuid
 from fastapi import Request, Response
@@ -38,8 +39,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "client": request.client.host if request.client else "unknown"
-            }
+                "client": request.client.host if request.client else "unknown",
+            },
         )
 
         response = await call_next(request)
@@ -53,19 +54,33 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "method": request.method,
                 "path": request.url.path,
                 "status_code": response.status_code,
-                "duration": duration
-            }
+                "duration": duration,
+            },
         )
 
         return response
 
 
 def setup_cors(app):
-    """Configure CORS middleware."""
+    """
+    Configure CORS middleware with secure defaults.
+
+    Restricts allowed headers to known safe headers to prevent
+    potential security issues with wildcard header access.
+    """
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.get_allowed_origins_list(),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Accept",
+            "Accept-Language",
+            "Content-Type",
+            "x-api-key",
+            "x-admin-key",
+            "X-Request-ID",
+            "Authorization",
+        ],
+        expose_headers=["X-Request-ID"],
     )

@@ -1,14 +1,22 @@
 """
 Health check endpoints for monitoring service status.
+
+Includes IP-based rate limiting to prevent abuse.
 """
-from fastapi import APIRouter, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException
+
 from app.core.redis import redis_client
-from app.database import supabase
+from app.core.ip_rate_limit import ip_rate_limit_dep
 from app.core.logging import get_logger
+from app.database import supabase
 
 logger = get_logger(__name__)
 
-router = APIRouter(tags=["Health"])
+router = APIRouter(
+    tags=["Health"],
+    dependencies=[Depends(ip_rate_limit_dep)],
+)
 
 
 @router.get("/health")
@@ -18,11 +26,7 @@ async def health_check():
 
     Returns service status and version information.
     """
-    return {
-        "status": "healthy",
-        "service": "statishub-api",
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "service": "statishub-api", "version": "1.0.0"}
 
 
 @router.get("/health/redis")
@@ -38,17 +42,11 @@ async def health_check_redis():
     """
     try:
         redis_client.ping()
-        return {
-            "status": "healthy",
-            "service": "redis",
-            "message": "Redis connection OK"
-        }
+        return {"status": "healthy", "service": "redis", "message": "Redis connection OK"}
     except Exception as e:
+        # Log full error internally but return generic message
         logger.error(f"Redis health check failed: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Redis unavailable: {str(e)}"
-        )
+        raise HTTPException(status_code=503, detail="Redis service unavailable")
 
 
 @router.get("/health/database")
@@ -65,14 +63,8 @@ async def health_check_database():
     try:
         # Simple query to test connection
         result = supabase.table("organization_information").select("taxcode").limit(1).execute()
-        return {
-            "status": "healthy",
-            "service": "supabase",
-            "message": "Database connection OK"
-        }
+        return {"status": "healthy", "service": "supabase", "message": "Database connection OK"}
     except Exception as e:
+        # Log full error internally but return generic message
         logger.error(f"Database health check failed: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Database unavailable: {str(e)}"
-        )
+        raise HTTPException(status_code=503, detail="Database service unavailable")

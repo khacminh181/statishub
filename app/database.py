@@ -1,6 +1,7 @@
 """
 Database connection management for Supabase.
 """
+
 from supabase import create_client
 
 from app.core.config import settings

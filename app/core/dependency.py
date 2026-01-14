@@ -1,6 +1,7 @@
 """
 FastAPI dependency functions for request handling.
 """
+
 from typing import Dict
 
 from fastapi import Depends, Request

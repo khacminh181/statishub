@@ -1,6 +1,8 @@
 """
 Company API endpoints for financial and organizational data.
 """
+
+import re
 from typing import Dict, List, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -70,9 +72,7 @@ def get_company(
     return res.data
 
 
-@router.get(
-    "/{taxcode}/balance-sheet", response_model=List[BalanceSheet], tags=["Financial Data"]
-)
+@router.get("/{taxcode}/balance-sheet", response_model=List[BalanceSheet], tags=["Financial Data"])
 def get_balance_sheet(
     taxcode: str,
     language: str = Query("en", enum=["en", "vi"]),
@@ -408,9 +408,7 @@ def get_industries(
         icb_ids = list({row["icbid"] for row in res.data if row.get("icbid")})
         icb_map = {}
         if icb_ids:
-            icb_master = (
-                supabase.table("cmms_dm_icb").select("*").in_("icbid", icb_ids).execute()
-            )
+            icb_master = supabase.table("cmms_dm_icb").select("*").in_("icbid", icb_ids).execute()
             icb_map = {i["icbid"]: i for i in (icb_master.data or [])}
 
         result = [
@@ -427,16 +425,30 @@ def get_industries(
     return result
 
 
-# Search router (separate prefix)
 searchRouter = APIRouter(
     prefix="",
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_api_key), Depends(rate_limit_dep)],
 )
+
+
+def _sanitize_search_input(name: str) -> str:
+    """
+    Sanitize search input to prevent SQL/filter injection.
+
+    Removes special characters that could modify PostgREST filter syntax
+    while preserving Vietnamese characters and common punctuation.
+    """
+    # Remove PostgREST filter operators and dangerous characters
+    # Keep alphanumeric, Vietnamese characters, spaces, and basic punctuation
+    sanitized = re.sub(r"[^\w\sÀ-ỹ\-\.]", "", name, flags=re.UNICODE)
+    # Remove multiple consecutive spaces
+    sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    return sanitized
 
 
 @searchRouter.get("/search", response_model=OrganizationSearchResponse, tags=["Search"])
 def search_organization(
-    name: str = Query(..., min_length=1, description="Organization name"),
+    name: str = Query(..., min_length=1, max_length=200, description="Organization name"),
     limit: int = Query(10, ge=1, le=50),
     offset: int = Query(0, ge=0),
     api_key: Dict = Depends(verify_api_key),
@@ -444,12 +456,17 @@ def search_organization(
     """Search organizations by name."""
     consume_credit(api_key["api_key"])
 
-    cache_key = build_search_cache_key(name, limit, offset)
+    # Sanitize input to prevent filter injection
+    safe_name = _sanitize_search_input(name)
+    if not safe_name:
+        return {"data": [], "pagination": {"total": 0, "limit": limit, "offset": offset}}
+
+    cache_key = build_search_cache_key(safe_name, limit, offset)
     cached = get_cached(cache_key)
     if cached:
         return cached
 
-    keyword = f"%{name}%"
+    keyword = f"%{safe_name}%"
 
     # Query data
     data_resp = (

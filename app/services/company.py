@@ -1,6 +1,7 @@
 """
 Company data retrieval services.
 """
+
 from app.core.exceptions import OrganizationNotFoundError
 from app.database import supabase
 
